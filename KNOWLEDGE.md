@@ -22,8 +22,8 @@ Atualizado em 2026-10-29. Leia este arquivo antes de mexer no código.
 | Item | Valor |
 |---|---|
 | Pasta | `/Users/iklo/editor` |
-| Branch | `etapa-1-video-longo` (não existe `main` com commit ainda) |
-| Commit da etapa 1 | `b2ef206 Edit long talking-head video: clean audio, transcribe, AI cut plan, render` |
+| Branch | `etapa-1-video-longo`, que também é o branch padrão no GitHub (não existe `main` ainda) |
+| Commit da etapa 1 | `f189747 Edit long talking-head video: clean audio, transcribe, AI cut plan, render` |
 | Remoto | `origin` = https://github.com/iklobato/talkedit (público, conta pessoal `iklobato`, publicado em 2026-10-29 a pedido do dono) |
 | Testes | 37 passando (`uv run pytest`), ruff e mypy limpos |
 | Python | 3.11 (`.venv` criado por `uv`) |
