@@ -1,0 +1,9 @@
+# Estilo "dinamico" (padrao): ritmo acelerado de YouTube atual.
+# Para criar o seu estilo, copie este arquivo para ~/.talkedit/estilos/meu.toml,
+# mude o que quiser e coloque estilo = "meu" no seu config.toml.
+
+[ritmo]
+ritmo = "dinamico"
+
+[editora]
+postura = "dinamico"
