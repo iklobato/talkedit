@@ -42,3 +42,15 @@ class OpenRouterError(TalkeditError):
 
 class AIResponseError(TalkeditError):
     pass
+
+
+class NotFoundError(TalkeditError):
+    pass
+
+
+class BusyError(TalkeditError):
+    """Another job is running; the spec allows one video at a time."""
+
+
+class AccessError(TalkeditError):
+    pass

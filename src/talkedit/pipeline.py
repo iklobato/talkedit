@@ -6,8 +6,8 @@ from talkedit.audio import AudioCleaner
 from talkedit.editor import Editor, EditorMaterial
 from talkedit.errors import ProjectError
 from talkedit.media import MediaInfo
-from talkedit.progress import ProgressReporter
-from talkedit.proxy import ProxyMaker
+from talkedit.progress import ProgressSink
+from talkedit.proxy import PlayerMaker, ProxyMaker
 from talkedit.resolver import LaughterGuard
 from talkedit.reviewer import Reviewer, ReviewMaterial
 from talkedit.settings import Settings
@@ -66,6 +66,17 @@ class ProxyStep:
         self._maker.make(context.source, context.workspace.proxy_video)
 
 
+class PlayerStep:
+    label = "Fazendo a copia do video para assistir na revisao"
+
+    def __init__(self, maker: PlayerMaker) -> None:
+        self._maker = maker
+
+    def produce(self, context: ProjectContext) -> None:
+        workspace = context.workspace
+        self._maker.make(context.source, workspace.clean_audio, workspace.player_video)
+
+
 class PlanStep:
     label = "IA editora escolhendo o que sai"
 
@@ -100,11 +111,12 @@ class Pipeline:
         self,
         steps: dict[Stage, PipelineStep],
         store: ProjectStateStore,
-        progress: ProgressReporter,
+        progress: ProgressSink,
     ) -> None:
         self._steps = steps
         self._store = store
         self._progress = progress
+
 
     def run_until(self, context: ProjectContext, last: Stage) -> ProjectState:
         state = self._store.load_or_create(context.source)

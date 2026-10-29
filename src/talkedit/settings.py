@@ -46,6 +46,11 @@ class PaceSettings(SettingsSection):
 class EditorSettings(SettingsSection):
     stance: EditorStance = Field(EditorStance.DYNAMIC, alias="postura")
     rules: list[str] = Field(default_factory=list, alias="regras")
+    request: str = Field("", alias="pedido", max_length=2000)
+
+    def with_request(self, request: str) -> "EditorSettings":
+        """The creator's ask for one redo of the plan ("cortando demais, seja conservador")."""
+        return self.model_copy(update={"request": request})
 
 
 class ModelSettings(SettingsSection):
@@ -67,3 +72,6 @@ class Settings(SettingsSection):
     editor: EditorSettings = Field(EditorSettings(), alias="editora")
     models: ModelSettings = Field(ModelSettings(), alias="modelos")
     render: RenderSettings = Field(RenderSettings(), alias="render")
+
+    def with_editor_request(self, request: str) -> "Settings":
+        return self.model_copy(update={"editor": self.editor.with_request(request)})

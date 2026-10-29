@@ -16,7 +16,7 @@ Estado vivo do projeto, para qualquer agente ou pessoa que continue o trabalho.
 1. CLI em Python (`talkedit`) que edita vídeo bruto de uma pessoa falando para a câmera, em português, num Mac Intel. Todos os modelos de IA passam pelo OpenRouter.
 2. **Etapa 1 de 7 entregue**: limpeza de áudio, transcrição, IA editora, IA revisora, corte de pausas, prévia e render do vídeo do YouTube.
 3. Extra pedido pelo dono, fora da spec: o vídeo pode vir de um **link público do Google Drive**.
-4. A aprovação ainda é pelo Terminal (`talkedit aprovar`). A página no navegador é a etapa 2.
+4. **Etapa 2 entregue no branch `etapa-2-frontend` (só local, sem push)**: `talkedit abrir` sobe uma página local com 4 telas (Novo vídeo com arrastar e soltar ou link do Drive, Em andamento, Revisão dos cortes, Padrões). O desenho das telas está no canvas https://claude.ai/artifact/Sh11CoPz6XyUVXSQMSzKtu (privado do dono).
 5. Modo de teste (`--teste`) roda tudo sem IA e sem custo.
 6. **Ainda ninguém rodou com um vídeo real do dono.** Só com vídeos sintéticos. Esta é a próxima ação.
 
@@ -26,10 +26,10 @@ Estado vivo do projeto, para qualquer agente ou pessoa que continue o trabalho.
 |---|---|
 | Pasta local | `/Users/iklo/editor` |
 | Remoto | `origin` = https://github.com/iklobato/talkedit, público, conta pessoal `iklobato` |
-| Branch | `etapa-1-video-longo`, também é o branch padrão no GitHub. Não existe `main`. |
-| Último commit | `2c98c90 Rewrite README as a step by step guide for the creator`, igual no local e no GitHub |
+| Branch | `etapa-1-video-longo` (padrão no GitHub, publicado) e `etapa-2-frontend` (criado a partir dele, **só local**, esperando o dono pedir o push). Não existe `main`. |
+| Último commit publicado | `32952e8 Refresh KNOWLEDGE.md ...` no `etapa-1-video-longo`. O commit da etapa 2 está no topo de `git log etapa-2-frontend`. |
 | Licença | nenhuma (GitHub responde `license=null`). Decisão pendente do dono. |
-| Testes | 50 passando (`uv run pytest`), ruff e mypy limpos |
+| Testes | 79 passando (`uv run pytest`, ~14 s), ruff e mypy limpos |
 | Python | 3.11 (`.venv` criado por `uv`) |
 
 Histórico, do mais novo para o mais antigo:
@@ -76,7 +76,7 @@ O `.gitignore` deixa de fora `tools/ffmpeg`, `tools/ffprobe` e `tools/sh.rnnn`. 
 ### Chave e arquivos do usuário
 
 - Chave do OpenRouter: variável `OPENROUTER_API_KEY` ou o arquivo `~/.talkedit/chave_openrouter.txt` (`ApiKeyReader`). Nunca imprima o valor.
-- Config: `~/.talkedit/config.toml`, criada por `talkedit config` a partir de `src/talkedit/config_modelo.toml`.
+- Config: `~/.talkedit/config.toml`, criada por `talkedit config` ou pela tela Padrões, as duas pelo `SettingsStore` (`settings_writer.py`).
 - Estilos do usuário: `~/.talkedit/estilos/<nome>.toml`. Os estilos prontos estão em `src/talkedit/estilos/`.
 - Vídeos baixados do Drive: `~/Movies/talkedit/<id do arquivo>/` (`UserHome.videos`).
 - `talkedit verificar` confere ffmpeg, filtros (`arnndn`, `loudnorm`, `ass`, `silencedetect`), modelo RNNoise, chave e se cada modelo existe no OpenRouter.
@@ -92,8 +92,9 @@ talkedit editar "https://drive.google.com/file/d/<ID>/view?usp=sharing" [--pasta
 talkedit previa    <pasta ou vídeo>
 talkedit aprovar   <pasta ou vídeo>
 talkedit continuar <pasta ou vídeo>
-talkedit refazer   <pasta> <audio|transcricao|proxy|plano|revisao> [--set ...]
+talkedit refazer   <pasta> <audio|transcricao|proxy|player|plano|revisao> [--set ...]
 talkedit config
+talkedit abrir [--porta N] [--sem-navegador]   (página local; fecha com Ctrl+C)
 talkedit --detalhes <comando> ...      (o --detalhes vem antes do comando)
 ```
 
@@ -108,11 +109,12 @@ Sem a instalação global, use `uv run talkedit ...` dentro da pasta do reposit�
 
 ```
 <nome>_talkedit/
-  estado.json            etapas feitas, modo (real/teste), overrides, aprovado
+  estado.json            etapas feitas, modo (real/teste), overrides, aprovado, editor_request
   trabalho/
     audio_limpo.wav      48 kHz mono, já no volume final (-14 LUFS)
     transcricao.json     palavras com início e fim (Transcript)
     proxy.mp4            360p, 1 quadro por segundo, sem som (vai para a IA editora)
+    player.mp4           540p H.264 com o audio limpo (player da pagina de revisao)
     plano.json           cortes de conteúdo, ênfases, pausas protegidas, observações (EditPlan)
     custos.json          US$ por função, como o OpenRouter informou
     pedacos_audio/       mp3 de ~2 min enviados para a transcrição
@@ -129,7 +131,7 @@ Sem a instalação global, use `uv run talkedit ...` dentro da pasta do reposit�
 Fluxo (`src/talkedit/pipeline.py`; a ordem está em `workspace.STAGE_ORDER`):
 
 ```
-[link do Drive -> download] -> audio -> transcricao -> proxy -> plano (IA editora)
+[link do Drive -> download] -> audio -> transcricao -> proxy -> player -> plano (IA editora)
     -> revisao (IA revisora) -> [aprovação do dono] -> render
 ```
 
@@ -154,7 +156,17 @@ Cada etapa grava o resultado e marca `estado.json`. Se algo falha ou o terminal 
 | `pacing.py` | `PauseCutter` e os perfis natural, dinâmico e acelerado |
 | `timeline.py` | trechos mantidos em quadros inteiros (`FrameGrid`, `TimelineBuilder`) |
 | `render.py` | segmentos em paralelo, emenda do áudio em Python, concat do ffmpeg |
-| `errors.py` | `TalkeditError(message, hint)` e subclasses; `DriveNotPublicError.saying(...)` já traz a instrução de compartilhar |
+| `errors.py` | `TalkeditError(message, hint)` e subclasses; `DriveNotPublicError.saying(...)` já traz a instrução de compartilhar; `NotFoundError`, `BusyError`, `AccessError` viram 404, 409 e 403 na página |
+| `projects.py` | `ProjectOpener` (Terminal e página usam o mesmo), `ProjectRegistry` (`~/.talkedit/projetos.json`, mais novo primeiro), `ProjectKey` (sha256 da pasta, 12 caracteres) |
+| `settings_writer.py` | `ConfigWriter` e `SettingsStore`: gravam `~/.talkedit/config.toml` com comentário em português por opção (substituiu o antigo `config_modelo.toml`) |
+| `plan_changes.py` | `PlanChanges`: devolver, tirar e marcar um trecho novo (`u1`, `u2`...) |
+| `web/http.py` | `WebRequest`, respostas (`JsonResponse`, `StaticResponse`, `FileResponse` com Range), `StaticFiles`, `AccessGuard` |
+| `web/api.py` | `Router`, `WebApplication` (erros viram JSON `{error, hint}`) e um endpoint por ação |
+| `web/actions.py` | `EditJobs` (trabalhos longos), `PlanEditing` (mudanças na hora), `VideoUploads`, `FinderOpener` |
+| `web/jobs.py` | `JobTracker` (um trabalho por vez, numa thread), `JobProgress` (progresso para a página), `JobLogHandler` |
+| `web/views.py` | JSON da lista, do detalhe com as etapas e do plano |
+| `web/server.py` | `WebServerBuilder` (raiz de composição da página), rotas e o handler do `http.server` |
+| `web/static/` | `index.html`, `app.css`, `app.js` (JS puro, sem framework, sem internet), `icon.svg` |
 | `proxy.py`, `phrases.py`, `plan.py`, `transcript.py`, `report.py`, `stores.py`, `schema.py`, `progress.py`, `doctor.py` | peças de apoio |
 
 ### Decisões que não são óbvias
@@ -169,6 +181,14 @@ Cada etapa grava o resultado e marca `estado.json`. Se algo falha ou o terminal 
 - **Proxy da IA:** `-skip_frame nokey` (decodifica só keyframes) + `fps=1` + 360p + crf 34, sem som.
 - **Transcrição em pedaços** de cerca de 120 s, com o corte movido para o meio do silêncio mais próximo (até 20 s de distância), até 4 em paralelo. Motivo: a doc do OpenRouter diz que o provedor desiste depois de 60 s por pedido.
 - **Ordem no `editar`:** primeiro abre o vídeo (ffprobe), só depois grava `estado.json`. Se o arquivo não for vídeo, não sobra projeto quebrado.
+- **Página local (etapa 2):** só `http.server` da stdlib, em `127.0.0.1`, porta livre. Três travas: o servidor só escuta no próprio Mac; toda chamada `/api/` precisa do código secreto (`X-Talkedit-Token` ou `?t=` para o `<video>`) que o `talkedit abrir` cria a cada vez; e o `Host` precisa ser o próprio servidor (contra DNS rebinding). A página tira o código da barra de endereço (`history.replaceState`) e guarda em `sessionStorage`. CSP `default-src 'self'`; estilos em linha liberados porque as barras da linha do tempo usam `style`. Todo texto vindo do servidor entra por `textContent`.
+- **Um trabalho por vez** (`JobTracker`): editar, prévia, aprovar e refazer rodam numa thread; um segundo pedido recebe 409. Erro do talkedit vira `FAILED` com mensagem e dica; erro inesperado também vira `FAILED` (no `finally`) e o traceback vai para o Terminal.
+- **O projeto só aparece para a página depois de existir em disco**: `EditJobs._edit_new` anuncia a chave no `JobTracker` depois de salvar `estado.json` e registrar em `projetos.json`. Antes disso a página mostra "Preparando o vídeo".
+- **Arrastar e soltar copia o vídeo** para `~/Movies/talkedit/` (`PUT /api/videos?name=`, corpo cru, 1 MB por vez, `.parcial` até o fim). O navegador nunca dá o caminho do arquivo. Nome limpo, só extensão de vídeo, nome repetido ganha `-2`.
+- **Player da revisão usa `player.mp4`** (etapa nova `player`, 540p H.264 com o áudio limpo), não o original: o navegador pode não tocar HEVC 4K do celular, e assim o que se ouve já é o áudio limpo. `FileResponse` atende Range para o player poder pular.
+- **Mudança no plano pela página cancela a aprovação** (`reopen_from(Stage.RENDER)`): o vídeo final antigo não bate mais. Mudança é recusada com 409 se um trabalho roda no mesmo projeto.
+- **Refazer com pedido**: o texto vai para `ProjectState.editor_request` e entra no prompt da editora ("O criador viu o plano anterior e pediu..."). Refazer apaga as mudanças feitas à mão (a página avisa).
+- **Padrões pela página**: `SettingsStore.save` valida com o mesmo loader do Terminal antes de gravar. O ritmo só é gravado se for diferente do ritmo do estilo, para que trocar de estilo depois continue trocando o ritmo.
 - **Download do Drive:** pede `https://drive.usercontent.google.com/download?id=<ID>&export=download&confirm=t`. Se vier a página "Virus scan warning", lê o formulário `download-form` e segue o botão. Faz streaming de 1 MB por vez para `download.parcial`, que só ganha o nome do `Content-Disposition` no fim. Recusa apaga o `.parcial`. O mesmo link de novo reaproveita o arquivo. Só stdlib (`urllib`, `html.parser`, `email.message`), sem `gdown`.
 
 ### Modelos padrão (escolhidos em 2026-10-29 pela lista `/api/v1/models`)
@@ -208,7 +228,12 @@ Formatos usados, tirados da doc atual do OpenRouter (não inventados):
    - Link inexistente: o Drive responde `404 text/html`, e o programa mostra "respondeu erro 404" com a instrução de compartilhar.
    - Foram achados e corrigidos 2 bugs, cada um com teste: um `editar` que falhava ao abrir o vídeo deixava `estado.json` para trás e travava a nova tentativa; e a busca de "já baixado" podia pegar a pasta `<nome>_talkedit/` no lugar do vídeo.
    - Ainda não foi testado com um vídeo real no Drive nem com um arquivo privado. O esperado no privado é a página de login cair na mensagem "não está público".
-8. **Os exemplos do README foram rodados de verdade** num clone novo (2026-10-29): `talkedit config`, `editar --teste` e `refazer <pasta> plano --set estilo=natural`. No vídeo de teste, o estilo natural ficou com 00:22 e o dinâmico com 00:20.
+9. **Etapa 2 testada de verdade em 2026-10-29** (navegador Playwright + `curl` + IA real):
+   - Página no navegador: arrastar e soltar (eventos `dragover`/`drop` com um `File` de 12 MB criado na página), envio, andamento, revisão, devolver, marcar arrastando na linha do tempo, ouvir trecho (parou em 18.05 s para um trecho que termina em ~17.8 s + 0.3 s), prévia, aprovar, vídeo final e Padrões gravando `config.toml`. Em 390 px de largura, sem rolagem para o lado (`scrollWidth` 375).
+   - IA real pela página (vídeo falado de 33 s): 3 cortes certos; depois "refazer" com o pedido "corte tambem a frase Parece chato, mas funciona" gerou o corte `c4` com essa frase. Custo total US$ 0.0231.
+   - Bugs achados e corrigidos nesse teste: a página pedia o projeto antes dele existir ("Nao achei esse projeto"); a checagem do link do Drive no JS recusava link válido (exigia `/` duas vezes); o botão "Trocar video" aparecia sem vídeo (CSS anulava `hidden`); a linha do progresso mostrava mensagens de fora do trabalho.
+   - Não testado: arrastar com o mouse de verdade (só eventos sintéticos), o Finder abrindo de verdade (o teste usa um `FolderOpener` falso), Safari, e vídeo de vários GB pelo envio.
+10. **Os exemplos do README foram rodados de verdade** num clone novo (2026-10-29): `talkedit config`, `editar --teste` e `refazer <pasta> plano --set estilo=natural`. No vídeo de teste, o estilo natural ficou com 00:22 e o dinâmico com 00:20.
 
 ## 7. Regras de código que os hooks cobram
 
@@ -236,6 +261,15 @@ Estas regras valem para todo `.py`, inclusive os testes. O hook `~/.claude/hooks
 - [x] 5.17 (parte) custo real por função e relatório em markdown
 - [x] Render do YouTube na resolução original, com emendas suaves, e prévia em 360p
 
+### Etapa 2 (branch `etapa-2-frontend`)
+
+- [x] 5.6 Página de revisão: aba Edição completa (resumo, player com linha do tempo colorida, lista com motivo, ouvir, devolver/tirar, marcar trecho novo, pedir para refazer, prévia, aprovar)
+- [x] Tela Novo vídeo com arrastar e soltar e link do Drive (pedido do dono)
+- [x] Tela Em andamento com etapas, tempo e custo, retomando depois de erro
+- [x] Tela Padrões gravando `~/.talkedit/config.toml` (decisão do dono: reescrever o config, não um arquivo separado)
+- [x] 5.13 (parte) botão Abrir pasta no Finder
+- [x] Funciona offline e retoma: fechar a aba não para nada; o estado está em disco
+
 ### Depois da etapa 1
 
 - [x] Repositório público no GitHub, sem binários de terceiros
@@ -246,7 +280,8 @@ Estas regras valem para todo `.py`, inclusive os testes. O hook `~/.claude/hooks
 
 ### Próxima ação
 
-- [ ] **Rodar com um vídeo real do dono** (de 2 a 5 min, de preferência pelo Drive) e medir custo, tempo, se os cortes estão certos e se as emendas soam bem de ouvido. Nada da etapa 2 deveria começar antes disso.
+- [ ] **Rodar com um vídeo real do dono** pela página (`talkedit abrir`), de 2 a 5 min, e medir custo, tempo, se os cortes estão certos e se as emendas soam bem de ouvido. Nada da etapa 3 deveria começar antes disso.
+- [ ] Push do branch `etapa-2-frontend`, quando o dono pedir.
 
 ### Decisões pendentes do dono
 
@@ -264,12 +299,12 @@ Estas regras valem para todo `.py`, inclusive os testes. O hook `~/.claude/hooks
 
 ### Próximas etapas (ordem de `SPEC.md`, seção 7)
 
-2. **Página de revisão, aba Edição** (5.6): servidor local feito só com Python (`http.server`) + HTML/JS puro, offline, estado em disco. Use `PlanResolver` e `EditRenderer.render(..., RenderProfile.preview())` para a prévia. Os cortes já têm `status` (`aplicado`, `devolvido`, `sugerido`) e `source` (`voce` para corte manual). "Refazer o plano com pedido em texto" precisa de um campo novo no prompt da editora.
+2. ~~Página de revisão, aba Edição~~: feita (ver seção 8). Falta nela: estimativa de tempo restante do fluxo todo e mostrar as pausas encurtadas na linha do tempo.
 3. **Estilo dinâmico** (5.7): disfarce de jump cut (alternar o enquadramento por segmento) e zoom de ênfase (`EditPlan.emphasis` já vem da editora, mas ainda não é usado). O render por segmento facilita, porque o `crop`/`scale` entra no `-vf` de cada trecho. Também a legenda `.srt` do YouTube, que precisa de uma função que leve o tempo do original para o tempo editado (`Timeline`).
 4. **Cortes verticais** (5.8, 5.9, 5.10): instalar `opencv-python` (já aprovado), detector de rosto YuNet em resolução baixa, legenda ASS karaokê queimada com o filtro `ass` do `tools/ffmpeg`, área segura comum de Shorts, Reels e TikTok, aba Cortes, modelo de cortes barato com vídeo.
 5. **Textos e thumbnail** (5.11, 5.12) e aba Textos.
 6. **Página de publicação** (5.13).
-7. **Guia de uso:** o `README.md` já cobre a instalação e o uso. Falta atualizar ele a cada etapa e explicar a página de revisão quando ela existir.
+7. **Guia de uso:** o `README.md` já cobre instalação, Terminal e página. Falta atualizar a cada etapa.
 
 ## 10. O que vigiar
 
@@ -284,11 +319,16 @@ Estas regras valem para todo `.py`, inclusive os testes. O hook `~/.claude/hooks
 | Travamento do ffmpeg | Ver a descoberta 1. Se uma etapa de áudio passar de alguns minutos num vídeo curto, é isso. | `ps aux \| grep tools/ffmpeg` e o tempo no log em `trabalho/logs/`. |
 | Mudança no download do Drive | O fluxo depende de `confirm=t` e do formulário `download-form`, que o Google pode mudar sem aviso. Também há um limite diário de downloads por arquivo. | Se `editar <link>` disser "mostrou uma pagina em vez do video" para um arquivo público, salve a página e confira o HTML. |
 | Tempo de render | 23.5 min para 15 min sintéticos em 1080p, perto da meta de 30. Vídeo 4K vai demorar mais. | Meça com vídeo real. `render.velocidade_x264 = "fast"` é a válvula. |
+| Página parada com o Terminal | A página depende do processo `talkedit abrir`. Fechar o Terminal para o trabalho no meio (a etapa em curso recomeça no `continuar`). | Se a página não conecta, rode `talkedit abrir` de novo e use "Continuar de onde parou". |
+| Código secreto da página | O endereço com `?t=` aparece no Terminal. Quem tiver o código e acesso ao Mac usa a API. Ele muda a cada `talkedit abrir`. | Não cole esse endereço em lugar nenhum. |
+| Envio de vídeo grande | Arrastar copia o vídeo inteiro pelo `localhost`; não foi testado com vários GB. | Tempo do envio e espaço em disco em `~/Movies/talkedit/`. |
 | README desatualizado | O README é o único guia do dono e mostra saídas reais. | A cada etapa, rode os exemplos do README num clone novo antes de publicar. |
 
 ## 11. Testes
 
-- `uv run pytest` roda os 50 testes em cerca de 6 s.
+- `uv run pytest` roda os 79 testes em cerca de 14 s.
+- `tests/test_web.py`: Range, trava de acesso, envio de vídeo, `JobTracker` (409, erro com dica, crash inesperado) e um ponta a ponta com o servidor HTTP de verdade numa porta livre (enviar, planejar em modo de teste, devolver um corte, aprovar, ler o vídeo final com Range, abrir pasta com `FolderOpener` falso).
+- `tests/test_settings_writer_and_changes.py`: gravar e reler padrões, ritmo omitido quando igual ao estilo, valor inválido não grava nada, `PlanChanges`, `ProjectRegistry`.
 - `tests/test_end_to_end.py` gera um vídeo de 12 s (tom de 220 Hz com silêncio), roda `editar --teste` e `aprovar`, e confere a sincronia, o encurtamento e o relatório. Ele também pega a volta do travamento do ffmpeg, porque usa a limpeza `normal`, e confere que um arquivo que não é vídeo não deixa projeto quebrado.
 - Testes de unidade: pausas, linha do tempo, emenda de áudio, resposta da editora e da revisora, trava de risada, config, estado, pedaços da transcrição, cliente OpenRouter (transporte falso), progresso (relógio falso) e download do Drive (`tests/test_drive.py`, com `FakeFetcher` no lugar da internet).
 - Os testes usam classes com constantes nomeadas por causa da regra de número solto. Os construtores de teste ficam em `tests/builders.py`.

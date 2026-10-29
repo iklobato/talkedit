@@ -5,7 +5,7 @@ from talkedit.media import CommandRunner, MediaInfo, ToolPaths
 from talkedit.openrouter import CostLedger
 from talkedit.pipeline import ProjectContext
 from talkedit.plan import CutKind
-from talkedit.progress import ProgressReporter
+from talkedit.progress import ProgressSink
 from talkedit.render import (
     AudioSplicer,
     ConcatMuxer,
@@ -45,7 +45,7 @@ class RenderKitFactory:
 
 class EditRenderer:
     def __init__(
-        self, resolver: PlanResolver, kits: RenderKitFactory, progress: ProgressReporter
+        self, resolver: PlanResolver, kits: RenderKitFactory, progress: ProgressSink
     ) -> None:
         self._resolver = resolver
         self._kits = kits

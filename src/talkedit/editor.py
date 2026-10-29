@@ -6,8 +6,8 @@ from typing import Any, Protocol
 
 from talkedit.openrouter import ChatRequest, CostFunction, CostLedger, OpenRouterClient
 from talkedit.phrases import PhraseGrouper, PhraseListing
-from talkedit.schema import StrictSchema
 from talkedit.plan import Cut, CutKind, CutSource, EditPlan, Emphasis, TimeLabel, TimeRange
+from talkedit.schema import StrictSchema
 from talkedit.settings import EditorStance, Settings
 from talkedit.transcript import Transcript
 
@@ -109,6 +109,11 @@ first_word e last_word sao inclusivos e usam o numero do indice (w12 = 12)."""
         if settings.editor.rules:
             rules = "\n".join(f"- {rule}" for rule in settings.editor.rules)
             parts.append(f"Regras do criador, siga sempre:\n{rules}")
+        if settings.editor.request:
+            parts.append(
+                "O criador viu o plano anterior e pediu para refazer assim, siga o pedido:\n"
+                f"{settings.editor.request}"
+            )
         return "\n\n".join(parts)
 
     def user_text(self, transcript: Transcript) -> str:
@@ -129,16 +134,22 @@ class EditorReply:
         cuts = [self._word_cut(item) for item in valid]
         cuts += [self._visual_cut(item) for item in content["visual_removals"]]
         return EditPlan(
-            cuts=[cut.model_copy(update={"id": f"c{number}"}) for number, cut in enumerate(cuts, 1)],
+            cuts=[
+                cut.model_copy(update={"id": f"c{number}"}) for number, cut in enumerate(cuts, 1)
+            ],
             emphasis=[self._emphasis(item) for item in content["emphasis"] if self._valid(item)],
-            protected=[self._pause(item) for item in content["protected_pauses"] if self._inside(item)],
+            protected=[
+                self._pause(item) for item in content["protected_pauses"] if self._inside(item)
+            ],
             notes=self._notes(len(content["removals"]) - len(valid)),
         )
 
     def _notes(self, skipped: int) -> list[str]:
         if not skipped:
             return []
-        return [f"a editora indicou {skipped} trecho(s) com indice de palavra errado; ficaram no video"]
+        return [
+            f"a editora indicou {skipped} trecho(s) com indice de palavra errado; ficaram no video"
+        ]
 
     def _inside(self, item: dict[str, Any]) -> bool:
         return 0 <= item["after_word"] < len(self._transcript.words) - 1

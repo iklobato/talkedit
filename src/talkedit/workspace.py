@@ -19,6 +19,7 @@ class Stage(Enum):
     CLEAN_AUDIO = "audio"
     TRANSCRIBE = "transcricao"
     PROXY = "proxy"
+    PLAYER = "player"
     PLAN = "plano"
     REVIEW = "revisao"
     RENDER = "render"
@@ -28,6 +29,7 @@ STAGE_ORDER = (
     Stage.CLEAN_AUDIO,
     Stage.TRANSCRIBE,
     Stage.PROXY,
+    Stage.PLAYER,
     Stage.PLAN,
     Stage.REVIEW,
     Stage.RENDER,
@@ -69,6 +71,10 @@ class ProjectWorkspace:
         return self.work_dir / "proxy.mp4"
 
     @property
+    def player_video(self) -> Path:
+        return self.work_dir / "player.mp4"
+
+    @property
     def transcript_file(self) -> Path:
         return self.work_dir / "transcricao.json"
 
@@ -103,6 +109,7 @@ class ProjectState(BaseModel):
     overrides: list[str] = []
     completed: list[Stage] = []
     approved: bool = False
+    editor_request: str = ""
 
     def is_done(self, stage: Stage) -> bool:
         return stage in self.completed

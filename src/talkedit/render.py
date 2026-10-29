@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from talkedit.media import CommandRunner, ToolPaths
-from talkedit.progress import ProgressReporter
+from talkedit.progress import ProgressSink
 from talkedit.timeline import FrameGrid, FrameSpan, Timeline
 
 FADE_SECONDS = 0.006
@@ -151,7 +151,7 @@ class Renderer:
         self._muxer = muxer
 
     def render(
-        self, request: RenderRequest, profile: RenderProfile, progress: ProgressReporter
+        self, request: RenderRequest, profile: RenderProfile, progress: ProgressSink
     ) -> None:
         request.work_folder.mkdir(parents=True, exist_ok=True)
         jobs = [
@@ -167,7 +167,7 @@ class Renderer:
         self._muxer.mux(MuxJob(segments, audio, request.target), profile)
 
     def _encode_all(
-        self, jobs: list[SegmentJob], profile: RenderProfile, progress: ProgressReporter
+        self, jobs: list[SegmentJob], profile: RenderProfile, progress: ProgressSink
     ) -> None:
         progress.start_task()
         workers = max(1, (os.cpu_count() or 1) // X264_THREADS_PER_JOB)

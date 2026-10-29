@@ -1,19 +1,22 @@
 import argparse
 import logging
+import os
 import shlex
-import shutil
 import sys
-from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
 from typing import Protocol
 
-from talkedit.app import ApiKeyReader, ProjectAssembler, ProjectServices, UserHome
+from talkedit.app import ApiKeyReader, ProjectAssembler, UserHome
 from talkedit.doctor import Doctor, InstallCheck, OpenRouterCheck, ToolsCheck
 from talkedit.drive import DriveDownloader, DriveLinkParser, UrllibFetcher, VideoSource
 from talkedit.errors import ConfigError, ProjectError, TalkeditError
 from talkedit.media import CommandRunner, ToolPaths
-from talkedit.pipeline import ProjectContext
+from talkedit.progress import ProgressReporter
+from talkedit.projects import OpenProject, ProjectOpener, ProjectRegistry
+from talkedit.settings_writer import SettingsStore
+from talkedit.web.actions import FinderOpener
+from talkedit.web.server import ServerOptions, WebServerBuilder
 from talkedit.render import RenderProfile
 from talkedit.workspace import (
     STAGE_ORDER,
@@ -26,34 +29,6 @@ from talkedit.workspace import (
 
 EXIT_ERROR = 1
 EXIT_STOPPED = 130
-
-
-@dataclass(frozen=True)
-class OpenProject:
-    state: ProjectState
-    context: ProjectContext
-    services: ProjectServices
-
-
-class ProjectOpener:
-    """Accepts the video path or the project folder, so every command takes either."""
-
-    def __init__(self, assembler: ProjectAssembler) -> None:
-        self._assembler = assembler
-
-    def workspace(self, given: Path) -> ProjectWorkspace:
-        if given.is_dir():
-            return ProjectWorkspace(given)
-        return ProjectWorkspace.beside(given)
-
-    def open(self, workspace: ProjectWorkspace) -> OpenProject:
-        state = ProjectStateStore(workspace).load()
-        return self.open_state(workspace, state)
-
-    def open_state(self, workspace: ProjectWorkspace, state: ProjectState) -> OpenProject:
-        settings = self._assembler.settings(state.overrides)
-        context = self._assembler.context(Path(state.source), workspace, settings)
-        return OpenProject(state, context, self._assembler.services(context, state.mode))
 
 
 class PlanPresenter:
@@ -163,6 +138,26 @@ class RedoCommand:
         self._presenter.show(project)
 
 
+class OpenCommand:
+    """`talkedit abrir`: the local page. Stops with Ctrl+C; a running job stops with it
+    and `talkedit continuar` (or the page, opened again) resumes it."""
+
+    def __init__(self, builder: WebServerBuilder, logger: logging.Logger) -> None:
+        self._builder = builder
+        self._logger = logger
+
+    def execute(self, args: argparse.Namespace) -> None:
+        running = self._builder.build(ServerOptions(args.porta, FinderOpener()))
+        self._logger.info("talkedit aberto em: %s", running.address)
+        self._logger.info("Para fechar: Ctrl+C neste Terminal.")
+        if not args.sem_navegador:
+            os.system(f"open {shlex.quote(running.address)} > /dev/null 2>&1")
+        try:
+            running.server.serve_forever()
+        finally:
+            running.server.server_close()
+
+
 class VerifyCommand:
     def __init__(self, assembler: ProjectAssembler, home: UserHome, logger: logging.Logger) -> None:
         self._assembler = assembler
@@ -183,17 +178,14 @@ class VerifyCommand:
 
 
 class ConfigCommand:
-    def __init__(self, home: UserHome, logger: logging.Logger) -> None:
-        self._home = home
+    def __init__(self, store: SettingsStore, logger: logging.Logger) -> None:
+        self._store = store
         self._logger = logger
 
     def execute(self, args: argparse.Namespace) -> None:
-        if not self._home.config.exists():
-            self._home.root.mkdir(parents=True, exist_ok=True)
-            template = Path(__file__).resolve().parent / "config_modelo.toml"
-            shutil.copyfile(template, self._home.config)
-        self._logger.info("Sua configuracao: %s", self._home.config)
-        self._logger.info("Para editar: open -e %s", shlex.quote(str(self._home.config)))
+        self._store.ensure_file()
+        self._logger.info("Sua configuracao: %s", self._store.path)
+        self._logger.info("Para editar: open -e %s", shlex.quote(str(self._store.path)))
 
 
 class ParserFactory:
@@ -211,6 +203,9 @@ class ParserFactory:
         self._add_overrides(redo)
         self._add_overrides(commands.add_parser("verificar", help="confere instalacao e chave"))
         commands.add_parser("config", help="cria e mostra o arquivo de configuracao")
+        page = commands.add_parser("abrir", help="abre a pagina do talkedit no navegador")
+        page.add_argument("--porta", type=int, default=0, help="porta local (padrao: uma livre)")
+        page.add_argument("--sem-navegador", action="store_true", help="so mostra o endereco")
         return parser
 
     def _add_edit_command(self, commands: argparse._SubParsersAction) -> None:
@@ -248,7 +243,8 @@ class CommandRegistry:
 
     def commands(self) -> MappingProxyType[str, CliCommand]:
         assembler = ProjectAssembler(ToolPaths.bundled(), self._home, self._logger)
-        opener = ProjectOpener(assembler)
+        registry = ProjectRegistry.at(self._home.projects_file)
+        opener = ProjectOpener(assembler, ProgressReporter.create(self._logger), registry)
         presenter = PlanPresenter(self._logger)
         return MappingProxyType(
             {
@@ -258,7 +254,10 @@ class CommandRegistry:
                 "previa": PreviewCommand(opener, self._logger),
                 "refazer": RedoCommand(opener, presenter),
                 "verificar": VerifyCommand(assembler, self._home, self._logger),
-                "config": ConfigCommand(self._home, self._logger),
+                "config": ConfigCommand(self._home.settings_store(), self._logger),
+                "abrir": OpenCommand(
+                    WebServerBuilder(self._home, self._video_source(), self._logger), self._logger
+                ),
             }
         )
 

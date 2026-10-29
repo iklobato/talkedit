@@ -17,14 +17,15 @@ from talkedit.pipeline import (
     Pipeline,
     PipelineStep,
     PlanStep,
+    PlayerStep,
     ProjectContext,
     ProxyStep,
     ReviewStep,
     TranscribeStep,
 )
 from talkedit.plan import CutDescriber, TimeLabel
-from talkedit.progress import ProgressReporter
-from talkedit.proxy import ProxyMaker
+from talkedit.progress import ProgressSink
+from talkedit.proxy import PlayerMaker, ProxyMaker
 from talkedit.rendering import EditRenderer, ProjectReport, RenderKitFactory, RenderStep
 from talkedit.report import PlanSummary, ReportWriter
 from talkedit.resolver import LaughterGuard, PlanResolver
@@ -37,6 +38,7 @@ from talkedit.settings_loader import (
     SettingsPaths,
     TomlFileReader,
 )
+from talkedit.settings_writer import ConfigWriter, SettingsStore, TomlValue
 from talkedit.stores import PlanStore, TranscriptStore
 from talkedit.transcription import (
     AudioChunker,
@@ -70,9 +72,17 @@ class UserHome:
     def key_file(self) -> Path:
         return self.root / "chave_openrouter.txt"
 
+    @property
+    def projects_file(self) -> Path:
+        return self.root / "projetos.json"
+
     def settings_paths(self) -> SettingsPaths:
         builtin = Path(__file__).resolve().parent / "estilos"
         return SettingsPaths(self.config, self.root / "estilos", builtin)
+
+    def settings_store(self) -> SettingsStore:
+        loader = SettingsLoader(self.settings_paths(), TomlFileReader(), DictMerger())
+        return SettingsStore(loader, ConfigWriter(TomlValue()), self.config)
 
 
 class ApiKeyReader:
@@ -150,7 +160,7 @@ class ProjectServices:
 class SharedParts:
     runner: CommandRunner
     ledger: CostLedger
-    progress: ProgressReporter
+    progress: ProgressSink
     resolver: PlanResolver
 
 
@@ -177,8 +187,10 @@ class ProjectAssembler:
             source, workspace, media, settings, TranscriptStore(workspace.transcript_file), plans
         )
 
-    def services(self, context: ProjectContext, mode: RunMode) -> ProjectServices:
-        parts = self._shared(context)
+    def services(
+        self, context: ProjectContext, mode: RunMode, progress: ProgressSink
+    ) -> ProjectServices:
+        parts = self._shared(context, progress)
         renderer = EditRenderer(
             parts.resolver, RenderKitFactory(parts.runner, self._tools), parts.progress
         )
@@ -191,12 +203,12 @@ class ProjectAssembler:
         pipeline = Pipeline(steps, ProjectStateStore(context.workspace), parts.progress)
         return ProjectServices(pipeline, renderer, report, summary, describer)
 
-    def _shared(self, context: ProjectContext) -> SharedParts:
+    def _shared(self, context: ProjectContext, progress: ProgressSink) -> SharedParts:
         profile = PaceProfiles().for_pace(context.settings.pace.pace)
         return SharedParts(
             runner=CommandRunner(context.workspace.logs_dir, self._logger),
             ledger=CostLedger.load(context.workspace.costs_file),
-            progress=ProgressReporter.create(self._logger),
+            progress=progress,
             resolver=PlanResolver(PauseCutter(profile)),
         )
 
@@ -211,6 +223,7 @@ class ProjectAssembler:
             Stage.CLEAN_AUDIO: CleanAudioStep(AudioCleaner(parts.runner, self._tools, chains)),
             Stage.TRANSCRIBE: TranscribeStep(toolkit.transcriber),
             Stage.PROXY: ProxyStep(ProxyMaker(parts.runner, self._tools)),
+            Stage.PLAYER: PlayerStep(PlayerMaker(parts.runner, self._tools)),
             Stage.PLAN: PlanStep(toolkit.editor, guard),
             Stage.REVIEW: ReviewStep(toolkit.reviewer, guard),
         }

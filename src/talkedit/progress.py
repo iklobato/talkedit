@@ -11,6 +11,16 @@ class Clock(Protocol):
     def now(self) -> float: ...
 
 
+class ProgressSink(Protocol):
+    """Where the pipeline and the renderer report progress: the terminal or a web job."""
+
+    def stage(self, position: str, label: str) -> None: ...
+
+    def start_task(self) -> None: ...
+
+    def step(self, done: int, total: int) -> None: ...
+
+
 class MonotonicClock:
     def now(self) -> float:
         return time.monotonic()

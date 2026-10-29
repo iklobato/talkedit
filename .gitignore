@@ -9,3 +9,4 @@ tools/ffprobe
 projetos/
 *.egg-info/
 tools/sh.rnnn
+.playwright-mcp/

@@ -6,11 +6,12 @@ Você entrega o vídeo bruto (um arquivo no Mac ou um link do Google Drive). O t
 áudio, transcreve, corta pausas, takes repetidos e erros, mostra o plano para você aprovar e
 entrega o vídeo pronto para o YouTube. O vídeo original nunca é alterado.
 
-> **Estado atual: etapa 1 de 7.** Já funciona: limpeza de áudio, transcrição, cortes pela IA,
-> revisão por uma segunda IA, prévia e vídeo final do YouTube. A aprovação ainda é pelo
-> Terminal. Ainda **não** tem: página de revisão no navegador, zoom e troca de enquadramento,
-> legenda do YouTube, cortes verticais (Shorts, Reels, TikTok), textos por plataforma e
-> thumbnail. O plano completo está em [`SPEC.md`](SPEC.md).
+> **Estado atual: etapa 2 de 7.** Já funciona: limpeza de áudio, transcrição, cortes pela IA,
+> revisão por uma segunda IA, prévia, vídeo final do YouTube e uma **página no navegador** para
+> mandar o vídeo (arrastando ou por link do Drive), acompanhar, revisar os cortes, aprovar e
+> salvar seus padrões. Ainda **não** tem: zoom e troca de enquadramento, legenda do YouTube,
+> cortes verticais (Shorts, Reels, TikTok), textos por plataforma e thumbnail. O plano completo
+> está em [`SPEC.md`](SPEC.md).
 
 ---
 
@@ -114,9 +115,40 @@ Se alguma linha mostrar `ERRO`, veja [Problemas comuns](#7-problemas-comuns).
 
 ## 2. Editar um vídeo
 
+Dois jeitos: pela **página no navegador** (mais fácil) ou pelo **Terminal**. Os dois mexem nos
+mesmos projetos.
+
+### Pela página
+
+```
+talkedit abrir
+```
+
+O navegador abre sozinho. Deixe o Terminal aberto enquanto usa a página; para fechar, `Ctrl+C`
+no Terminal.
+
+1. **Novo vídeo:** arraste o vídeo para a área tracejada (ou clique nela para escolher), ou cole
+   o link do Google Drive. Escolha o estilo, marque "Modo de teste" se quiser sem custo, e clique
+   em **Começar edição**. O vídeo arrastado é copiado para `~/Movies/talkedit/`.
+2. **Em andamento:** mostra cada etapa com ✓, o tempo e o custo até agora. Pode fechar a aba; o
+   trabalho continua enquanto o Terminal estiver aberto.
+3. **Revisão:** quando a IA termina, aparece o vídeo com a linha do tempo (vermelho sai, laranja é
+   sugestão da revisora) e a lista de trechos. Em cada trecho: ▶ para ouvir, **Devolver** ou
+   **Tirar**. Arraste na linha do tempo para marcar um trecho novo para sair. Dá para pedir à IA
+   que refaça o plano escrevendo o que quer ("está cortando demais").
+4. **Gerar prévia** para assistir o resultado em baixa qualidade, e **Aprovar e gerar vídeo** para o
+   final. Pronto, o botão **Abrir pasta no Finder** mostra a entrega.
+5. **Padrões:** estilo, ritmo, limpeza da voz, palavras difíceis, regras para a editora e qualidade.
+   **Salvar padrões** grava no `~/.talkedit/config.toml`, que o Terminal também usa.
+
+A página só funciona no próprio Mac: ela usa um endereço com um código secreto que o
+`talkedit abrir` cria a cada vez.
+
+### Pelo Terminal
+
 São 3 passos: **editar**, olhar a **prévia** e **aprovar**.
 
-### Passo 1: editar
+#### Passo 1: editar
 
 Com um arquivo do Mac:
 
@@ -138,11 +170,12 @@ outro lugar, acrescente `--pasta ~/Desktop`.
 O talkedit mostra cada etapa e para no fim com o plano:
 
 ```
-[1/5] Limpando o audio
-[2/5] Transcrevendo a fala
-[3/5] Fazendo a copia leve do video para a IA
-[4/5] IA editora escolhendo o que sai
-[5/5] IA revisora conferindo a edicao
+[1/6] Limpando o audio
+[2/6] Transcrevendo a fala
+[3/6] Fazendo a copia leve do video para a IA
+[4/6] Fazendo a copia do video para assistir na revisao
+[5/6] IA editora escolhendo o que sai
+[6/6] IA revisora conferindo a edicao
 
 00:33 vai ficar com 00:14, 3 trechos removidos
 
@@ -161,7 +194,7 @@ Proximo passo:
 Cada trecho cortado vem com o horário, o que foi falado e o motivo. As pausas longas também são
 encurtadas, mas não aparecem nessa lista; o total delas está no relatório final.
 
-### Passo 2: olhar a prévia (opcional, mas recomendado)
+#### Passo 2: olhar a prévia (opcional, mas recomendado)
 
 ```
 talkedit previa /Users/voce/Movies/gravacao_talkedit
@@ -176,7 +209,7 @@ Não gostou do plano? Refaça a etapa com outra opção (veja [Configuração](#
 talkedit refazer /Users/voce/Movies/gravacao_talkedit plano --set estilo=natural
 ```
 
-### Passo 3: aprovar
+#### Passo 3: aprovar
 
 ```
 talkedit aprovar /Users/voce/Movies/gravacao_talkedit
@@ -184,7 +217,7 @@ talkedit aprovar /Users/voce/Movies/gravacao_talkedit
 
 O vídeo final fica em `entrega/youtube.mp4` e o relatório em `entrega/relatorio.md`.
 
-### Testar sem gastar nada
+#### Testar sem gastar nada
 
 Acrescente `--teste`: o fluxo inteiro roda com respostas simuladas e sem IA. Serve para conferir a
 instalação, o ritmo e o render.
@@ -202,6 +235,7 @@ vídeo original.
 
 | Comando | O que faz |
 |---|---|
+| `talkedit abrir` | Abre a página no navegador (fecha com `Ctrl+C`) |
 | `talkedit editar <vídeo ou link>` | Começa um vídeo novo e para no plano para você aprovar |
 | `talkedit previa <pasta>` | Gera uma prévia rápida em baixa qualidade |
 | `talkedit aprovar <pasta>` | Aprova o plano e gera o vídeo final |
@@ -217,9 +251,10 @@ Opções:
 | `--teste` | `editar` | Sem IA e sem custo |
 | `--pasta <pasta>` | `editar` com link | Onde salvar o vídeo baixado do Drive |
 | `--set secao.opcao=valor` | `editar`, `refazer`, `verificar` | Muda uma opção só neste projeto. Pode repetir. |
+| `--porta <número>` / `--sem-navegador` | `abrir` | Escolhe a porta / só mostra o endereço, sem abrir o navegador |
 | `--detalhes` | todos (antes do comando) | Mostra cada comando do ffmpeg: `talkedit --detalhes editar ...` |
 
-Etapas que dá para refazer, em ordem: `audio`, `transcricao`, `proxy`, `plano`, `revisao`. Refazer
+Etapas que dá para refazer, em ordem: `audio`, `transcricao`, `proxy`, `player`, `plano`, `revisao`. Refazer
 uma etapa também refaz as que vêm depois e tira a aprovação.
 
 ---
@@ -236,6 +271,7 @@ gravacao_talkedit/
     relatorio.md             o que saiu e por quê, duração antes e depois, custo
   trabalho/                  arquivos do processo (pode apagar depois de publicar)
     previa.mp4
+    player.mp4               cópia leve para o player da página de revisão
     audio_limpo.wav
     transcricao.json
     plano.json
@@ -248,7 +284,8 @@ gravacao_talkedit/
 
 ## 5. Configuração
 
-Rode `talkedit config` uma vez. Ele cria `~/.talkedit/config.toml`, com uma explicação em
+O jeito mais fácil é a tela **Padrões** da página (`talkedit abrir`). Pelo Terminal, rode
+`talkedit config` uma vez. Os dois gravam `~/.talkedit/config.toml`, com uma explicação em
 português de cada opção. Para abrir: `open -e ~/.talkedit/config.toml`. O que você muda ali vale
 para todos os vídeos.
 
@@ -296,6 +333,9 @@ Todo erro aparece em português, com uma linha "O que fazer".
 
 | Mensagem | O que fazer |
 |---|---|
+| Página: `Acesso negado.` ou `Esta pagina precisa do endereco completo.` | Rode `talkedit abrir` de novo; cada vez ele cria um endereço novo. |
+| Página: `Ja tem um video sendo processado.` | O talkedit faz um vídeo por vez. Espere o atual terminar (aba "Em andamento"). |
+| Página não abre (`não foi possível conectar`) | O Terminal com `talkedit abrir` foi fechado. Rode de novo. |
 | `Nao achei a chave do OpenRouter.` | Faça o passo [1.5](#15-coloque-a-sua-chave-do-openrouter). |
 | `O OpenRouter recusou a chave.` | A chave está errada ou foi apagada. Gere outra no site do OpenRouter. |
 | `Acabou o credito no OpenRouter.` | Coloque crédito em https://openrouter.ai/settings/credits e rode `talkedit continuar <pasta>`. |

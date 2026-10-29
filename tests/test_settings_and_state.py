@@ -75,5 +75,5 @@ class TestProjectState:
 
         reopened = state.reopen_from(Stage.PLAN)
 
-        assert reopened.completed == [Stage.CLEAN_AUDIO, Stage.TRANSCRIBE, Stage.PROXY]
+        assert reopened.completed == [Stage.CLEAN_AUDIO, Stage.TRANSCRIBE, Stage.PROXY, Stage.PLAYER]
         assert not reopened.approved, "a redone plan needs a new approval"

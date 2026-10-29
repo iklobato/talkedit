@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from pydantic import ValidationError
+
 from talkedit.errors import ConfigError
 from talkedit.settings import Settings
 
@@ -76,9 +77,7 @@ class TomlFileReader:
 class SettingsLoader:
     """Layers, weakest first: built-in style, user config file, one-run overrides."""
 
-    def __init__(
-        self, paths: SettingsPaths, reader: TomlFileReader, merger: DictMerger
-    ) -> None:
+    def __init__(self, paths: SettingsPaths, reader: TomlFileReader, merger: DictMerger) -> None:
         self._paths = paths
         self._reader = reader
         self._merger = merger
@@ -88,6 +87,13 @@ class SettingsLoader:
         chosen = self._merger.merge(user, overrides)
         style = self._read_style(str(chosen.get(STYLE_KEY, DEFAULT_STYLE)))
         return self._validate(self._merger.merge(style, chosen))
+
+    def style_defaults(self, name: str) -> Settings:
+        """What a style gives with no user config, to tell a user choice from a default."""
+        return self._validate({**self._read_style(name), STYLE_KEY: name})
+
+    def validate(self, raw: dict[str, Any]) -> Settings:
+        return self._validate(raw)
 
     def _read_user_config(self) -> dict[str, Any]:
         if not self._paths.user_config.exists():

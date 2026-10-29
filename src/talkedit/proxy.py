@@ -22,3 +22,25 @@ class ProxyMaker:
         command += ["-c:v", "libx264", "-preset", "veryfast", "-crf", str(PROXY_CRF)]
         command += ["-pix_fmt", "yuv420p", "-y", str(target)]
         self._runner.capture(command, "proxy")
+
+
+class PlayerMaker:
+    """Copy for the review page player: 540p H.264 with the clean audio. Browsers on an
+    Intel Mac may not play the phone original (HEVC, 4K), and this one seeks fast."""
+
+    HEIGHT = 540
+    CRF = 26
+    AUDIO_BITRATE = "128k"
+
+    def __init__(self, runner: CommandRunner, tools: ToolPaths) -> None:
+        self._runner = runner
+        self._tools = tools
+
+    def make(self, source: Path, clean_audio: Path, target: Path) -> None:
+        command = [str(self._tools.ffmpeg), "-hide_banner", "-i", str(source)]
+        command += ["-i", str(clean_audio), "-map", "0:v:0", "-map", "1:a:0"]
+        command += ["-vf", f"scale=-2:{self.HEIGHT}", "-pix_fmt", "yuv420p"]
+        command += ["-c:v", "libx264", "-preset", "veryfast", "-crf", str(self.CRF)]
+        command += ["-c:a", "aac", "-b:a", self.AUDIO_BITRATE, "-ac", "2"]
+        command += ["-movflags", "+faststart", "-y", str(target)]
+        self._runner.capture(command, "player")
