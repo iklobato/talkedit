@@ -16,7 +16,7 @@ Estado vivo do projeto, para qualquer agente ou pessoa que continue o trabalho.
 1. CLI em Python (`talkedit`) que edita vídeo bruto de uma pessoa falando para a câmera, em português, num Mac Intel. Todos os modelos de IA passam pelo OpenRouter.
 2. **Etapa 1 de 7 entregue**: limpeza de áudio, transcrição, IA editora, IA revisora, corte de pausas, prévia e render do vídeo do YouTube.
 3. Extra pedido pelo dono, fora da spec: o vídeo pode vir de um **link público do Google Drive**.
-4. **Etapa 2 entregue no branch `etapa-2-frontend` (só local, sem push)**: `talkedit abrir` sobe uma página local com 4 telas (Novo vídeo com arrastar e soltar ou link do Drive, Em andamento, Revisão dos cortes, Padrões). O desenho das telas está no canvas https://claude.ai/artifact/Sh11CoPz6XyUVXSQMSzKtu (privado do dono).
+4. **Etapa 2 entregue no branch `etapa-2-frontend` (publicado no GitHub em 2026-10-29)**: `talkedit abrir` sobe uma página local com 4 telas (Novo vídeo com arrastar e soltar ou link do Drive, Em andamento, Revisão dos cortes, Padrões). O desenho das telas está no canvas https://claude.ai/artifact/Sh11CoPz6XyUVXSQMSzKtu (privado do dono).
 5. Modo de teste (`--teste`) roda tudo sem IA e sem custo.
 6. **Ainda ninguém rodou com um vídeo real do dono.** Só com vídeos sintéticos. Esta é a próxima ação.
 
@@ -26,7 +26,7 @@ Estado vivo do projeto, para qualquer agente ou pessoa que continue o trabalho.
 |---|---|
 | Pasta local | `/Users/iklo/editor` |
 | Remoto | `origin` = https://github.com/iklobato/talkedit, público, conta pessoal `iklobato` |
-| Branch | `etapa-1-video-longo` (padrão no GitHub, publicado) e `etapa-2-frontend` (criado a partir dele, **só local**, esperando o dono pedir o push). Não existe `main`. |
+| Branch | `etapa-1-video-longo` (padrão no GitHub, publicado) e `etapa-2-frontend` (criado a partir dele, publicado). O padrão no GitHub continua `etapa-1-video-longo`. Não existe `main`. |
 | Último commit publicado | `32952e8 Refresh KNOWLEDGE.md ...` no `etapa-1-video-longo`. O commit da etapa 2 está no topo de `git log etapa-2-frontend`. |
 | Licença | nenhuma (GitHub responde `license=null`). Decisão pendente do dono. |
 | Testes | 79 passando (`uv run pytest`, ~14 s), ruff e mypy limpos |
@@ -281,7 +281,6 @@ Estas regras valem para todo `.py`, inclusive os testes. O hook `~/.claude/hooks
 ### Próxima ação
 
 - [ ] **Rodar com um vídeo real do dono** pela página (`talkedit abrir`), de 2 a 5 min, e medir custo, tempo, se os cortes estão certos e se as emendas soam bem de ouvido. Nada da etapa 3 deveria começar antes disso.
-- [ ] Push do branch `etapa-2-frontend`, quando o dono pedir.
 
 ### Decisões pendentes do dono
 
