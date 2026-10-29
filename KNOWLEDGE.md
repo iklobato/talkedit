@@ -72,6 +72,8 @@ O `sh.rnnn` não vai no git porque o repositório de origem (GregorR/rnnoise-mod
 
 ## 4. Como usar (estado atual)
 
+O passo a passo para quem não programa está no `README.md`. Instalação como comando global, testada em clone novo em 2026-10-29: `uv tool install --editable .` (o `ToolPaths` acha `tools/` pelo caminho do código, então precisa ser `--editable`).
+
 ```
 uv run talkedit verificar
 uv run talkedit editar video.mp4 [--teste] [--set ritmo.ritmo=acelerado]
