@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from talkedit.drive import NOT_PUBLIC_HINT, DriveDownloader, DriveLinkParser, HttpReply, VideoSource
-from talkedit.errors import ConfigError, MediaError
+from talkedit.drive import DriveDownloader, DriveLinkParser, HttpReply, VideoSource
+from talkedit.errors import ConfigError, DriveNotPublicError, MediaError
 
 FILE_ID = "1l_5RK28JRL19wpT22B-DY9We3TVXnnQQ"
 SHARE_LINK = f"https://drive.google.com/file/d/{FILE_ID}/view?usp=sharing"
@@ -101,7 +101,7 @@ class TestDriveDownloader:
         with pytest.raises(MediaError) as raised:
             downloader.download(SHARE_LINK, tmp_path)
 
-        assert raised.value.hint == NOT_PUBLIC_HINT
+        assert raised.value.hint == DriveNotPublicError.HINT
         assert list((tmp_path / FILE_ID).iterdir()) == [], "a refused download must leave nothing"
 
     def test_missing_file_reports_the_drive_error_code(self, tmp_path: Path) -> None:
