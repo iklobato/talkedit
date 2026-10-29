@@ -24,7 +24,7 @@ Atualizado em 2026-10-29. Leia este arquivo antes de mexer no código.
 | Pasta | `/Users/iklo/editor` |
 | Branch | `etapa-1-video-longo` (não existe `main` com commit ainda) |
 | Commit da etapa 1 | `b2ef206 Edit long talking-head video: clean audio, transcribe, AI cut plan, render` |
-| Remoto | nenhum. Git só local, aprovado pelo dono. Não fazer push sem pedido. |
+| Remoto | `origin` = https://github.com/iklobato/talkedit (público, conta pessoal `iklobato`, publicado em 2026-10-29 a pedido do dono) |
 | Testes | 37 passando (`uv run pytest`), ruff e mypy limpos |
 | Python | 3.11 (`.venv` criado por `uv`) |
 
@@ -39,21 +39,26 @@ Regra combinada com o dono: um branch e um commit por etapa entregue.
 
 ### Binários em `tools/` (fora do git)
 
-`.gitignore` ignora `tools/ffmpeg` e `tools/ffprobe`. Num clone novo, baixe de novo:
+`.gitignore` ignora `tools/ffmpeg`, `tools/ffprobe` e `tools/sh.rnnn`. Num clone novo, baixe:
 
 ```
-cd tools
+mkdir -p tools && cd tools
 curl -sL -o ffmpeg.zip https://evermeet.cx/ffmpeg/ffmpeg-9.0.2.zip
 curl -sL -o ffprobe.zip https://evermeet.cx/ffmpeg/ffprobe-9.0.2.zip
 unzip -o ffmpeg.zip && unzip -o ffprobe.zip && rm *.zip
 xattr -d com.apple.quarantine ffmpeg ffprobe
+curl -sfL -o sh.rnnn https://raw.githubusercontent.com/GregorR/rnnoise-models/master/somnolent-hogwash-2018-09-01/sh.rnnn
+shasum -a 256 ffmpeg ffprobe sh.rnnn
 ```
+
+O `sh.rnnn` não vai no git porque o repositório de origem (GregorR/rnnoise-models) não declara licença
+(a API do GitHub responde `license: None`, conferido em 2026-10-29). Baixar é permitido; redistribuir não está claro.
 
 | Arquivo | sha256 conferido em 2026-10-29 | No git? |
 |---|---|---|
 | `tools/ffmpeg` (9.0.2-tessus, x86_64) | `a45b462cf91ed89148ae218c4577e30896485d7a6792c3673bcf5f823fa01b63` | não |
 | `tools/ffprobe` | `a29f8c2e03553223a8b480b1a1f04c42f680c138fa952c20086718a075db38cb` | não |
-| `tools/sh.rnnn` (RNNoise de voz, GregorR/rnnoise-models, somnolent-hogwash) | `70bb6685eb0c2a1d18e2918dca3fbfbd39317010b1802eb1b6ea73a92f3fdec0` | sim |
+| `tools/sh.rnnn` (RNNoise de voz, GregorR/rnnoise-models, somnolent-hogwash) | `70bb6685eb0c2a1d18e2918dca3fbfbd39317010b1802eb1b6ea73a92f3fdec0` | não |
 
 - Por que um ffmpeg próprio: o ffmpeg do brew (`/usr/local/bin/ffmpeg` 9.0.1) não tem os filtros `ass`, `subtitles` e `drawtext`. A legenda animada (etapa 4) precisa de libass.
 - O link genérico `https://evermeet.cx/ffmpeg/getrelease/zip` foi desligado (HTTP 410). Use o link com a versão.

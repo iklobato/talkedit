@@ -9,6 +9,7 @@ O guia de uso para quem nao programa vem na etapa 7 (`GUIA.md`).
 - Python 3.11, uma dependencia (`pydantic`). Testes com `pytest`, tipos com `mypy`.
 - ffmpeg estatico 9.0.2 (evermeet.cx, Intel) em `tools/`, com libass para a legenda animada.
   O ffmpeg do brew nao tem libass. `tools/sh.rnnn` e o modelo RNNoise de voz (GregorR/rnnoise-models).
+  Nenhum dos tres vai no git; os comandos para baixar estao em `KNOWLEDGE.md`, secao 3.
 - Comandos externos rodam com `os.system` e a saida vai para `trabalho/logs/` de cada projeto.
 - Limpeza de audio gratuita: `highpass`, `arnndn`, `afftdn`, `dynaudnorm`, `acompressor` e
   `loudnorm` em duas passadas (-14 LUFS). `speechnorm` depois de `arnndn` trava o ffmpeg 9.0.2.
