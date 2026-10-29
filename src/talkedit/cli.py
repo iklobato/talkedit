@@ -10,6 +10,7 @@ from typing import Protocol
 
 from talkedit.app import ApiKeyReader, ProjectAssembler, ProjectServices, UserHome
 from talkedit.doctor import Doctor, InstallCheck, OpenRouterCheck, ToolsCheck
+from talkedit.drive import DriveDownloader, DriveLinkParser, UrllibFetcher, VideoSource
 from talkedit.errors import ConfigError, ProjectError, TalkeditError
 from talkedit.media import CommandRunner, ToolPaths
 from talkedit.pipeline import ProjectContext
@@ -79,12 +80,16 @@ class CliCommand(Protocol):
 
 
 class EditCommand:
-    def __init__(self, opener: ProjectOpener, presenter: PlanPresenter) -> None:
+    def __init__(
+        self, opener: ProjectOpener, presenter: PlanPresenter, sources: VideoSource
+    ) -> None:
         self._opener = opener
         self._presenter = presenter
+        self._sources = sources
 
     def execute(self, args: argparse.Namespace) -> None:
-        source = Path(args.video).expanduser().resolve()
+        chosen = Path(args.pasta).expanduser() if args.pasta else None
+        source = self._sources.local_path(args.video, chosen)
         workspace = ProjectWorkspace.beside(source)
         store = ProjectStateStore(workspace)
         if store.exists():
@@ -94,8 +99,8 @@ class EditCommand:
             )
         mode = RunMode.TEST if args.teste else RunMode.REAL
         state = ProjectState(source=str(source), mode=mode, overrides=args.set)
-        store.save(state)
         project = self._opener.open_state(workspace, state)
+        store.save(state)
         project.services.pipeline.run_until(project.context, Stage.REVIEW)
         self._presenter.show(project)
 
@@ -198,10 +203,7 @@ class ParserFactory:
         parser = argparse.ArgumentParser(prog="talkedit", description="Editor de video com IA.")
         parser.add_argument("--detalhes", action="store_true", help="mostra cada comando rodado")
         commands = parser.add_subparsers(dest="comando", required=True)
-        edit = commands.add_parser("editar", help="edita um video bruto e para para voce aprovar")
-        edit.add_argument("video", help="caminho do video bruto")
-        edit.add_argument("--teste", action="store_true", help="sem IA e sem custo")
-        self._add_overrides(edit)
+        self._add_edit_command(commands)
         self._add_project_commands(commands)
         redo = commands.add_parser("refazer", help="refaz uma etapa e as seguintes")
         redo.add_argument("pasta", help=self.PROJECT_HELP)
@@ -210,6 +212,16 @@ class ParserFactory:
         self._add_overrides(commands.add_parser("verificar", help="confere instalacao e chave"))
         commands.add_parser("config", help="cria e mostra o arquivo de configuracao")
         return parser
+
+    def _add_edit_command(self, commands: argparse._SubParsersAction) -> None:
+        edit = commands.add_parser("editar", help="edita um video bruto e para para voce aprovar")
+        edit.add_argument("video", help="caminho do video bruto ou link publico do Google Drive")
+        edit.add_argument(
+            "--pasta",
+            help="onde salvar o video baixado do Google Drive (padrao: ~/Movies/talkedit)",
+        )
+        edit.add_argument("--teste", action="store_true", help="sem IA e sem custo")
+        self._add_overrides(edit)
 
     def _add_project_commands(self, commands: argparse._SubParsersAction) -> None:
         for name, help_text in (
@@ -240,7 +252,7 @@ class CommandRegistry:
         presenter = PlanPresenter(self._logger)
         return MappingProxyType(
             {
-                "editar": EditCommand(opener, presenter),
+                "editar": EditCommand(opener, presenter, self._video_source()),
                 "continuar": ContinueCommand(opener, presenter),
                 "aprovar": ApproveCommand(opener, self._logger),
                 "previa": PreviewCommand(opener, self._logger),
@@ -249,6 +261,11 @@ class CommandRegistry:
                 "config": ConfigCommand(self._home, self._logger),
             }
         )
+
+    def _video_source(self) -> VideoSource:
+        parser = DriveLinkParser()
+        downloader = DriveDownloader(UrllibFetcher(self._logger), parser, self._logger)
+        return VideoSource(parser, downloader, self._home.videos)
 
 
 class CommandLine:

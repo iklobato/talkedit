@@ -56,10 +56,11 @@ class UserHome:
     """~/.talkedit holds what is valid for every video: config, styles and the key."""
 
     root: Path
+    videos: Path
 
     @classmethod
     def default(cls) -> "UserHome":
-        return cls(Path.home() / ".talkedit")
+        return cls(Path.home() / ".talkedit", Path.home() / "Movies" / "talkedit")
 
     @property
     def config(self) -> Path:

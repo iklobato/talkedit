@@ -25,7 +25,7 @@ Atualizado em 2026-10-29. Leia este arquivo antes de mexer no código.
 | Branch | `etapa-1-video-longo`, que também é o branch padrão no GitHub (não existe `main` ainda) |
 | Commit da etapa 1 | `f189747 Edit long talking-head video: clean audio, transcribe, AI cut plan, render` |
 | Remoto | `origin` = https://github.com/iklobato/talkedit (público, conta pessoal `iklobato`, publicado em 2026-10-29 a pedido do dono) |
-| Testes | 37 passando (`uv run pytest`), ruff e mypy limpos |
+| Testes | 50 passando (`uv run pytest`), ruff e mypy limpos |
 | Python | 3.11 (`.venv` criado por `uv`) |
 
 Regra combinada com o dono: um branch e um commit por etapa entregue.
@@ -75,6 +75,7 @@ O `sh.rnnn` não vai no git porque o repositório de origem (GregorR/rnnoise-mod
 ```
 uv run talkedit verificar
 uv run talkedit editar video.mp4 [--teste] [--set ritmo.ritmo=acelerado]
+uv run talkedit editar "https://drive.google.com/file/d/<ID>/view?usp=sharing" [--pasta ~/Desktop]
 uv run talkedit previa  <pasta ou vídeo>
 uv run talkedit aprovar <pasta ou vídeo>
 uv run talkedit continuar <pasta ou vídeo>
@@ -86,6 +87,16 @@ uv run talkedit config
 - `editar` roda até a revisora e para. `aprovar` faz o render final.
 - `--set` vale só para aquele projeto e fica salvo em `estado.json` (`overrides`), para `continuar` usar o mesmo valor.
 - `--detalhes` mostra cada comando do ffmpeg.
+
+### Vídeo pelo Google Drive (`src/talkedit/drive.py`)
+
+- `editar` aceita o link de compartilhar do Drive. Os formatos aceitos são `/file/d/<ID>/...`, `open?id=<ID>`, `uc?id=<ID>` e `drive.usercontent.google.com/download?id=<ID>`. Um link de pasta (`/folders/`) é recusado com instrução.
+- O arquivo precisa estar como "Qualquer pessoa com o link". Arquivo privado não é suportado: não existe login com o Google.
+- O vídeo vai para `<--pasta ou ~/Movies/talkedit>/<ID>/<nome no Drive>`, e o projeto fica ao lado dele, como num vídeo local. Rodar o mesmo link de novo reaproveita o arquivo e não baixa de novo.
+- Como baixa: `https://drive.usercontent.google.com/download?id=<ID>&export=download&confirm=t`. Se o Drive devolver a página "Virus scan warning", o programa lê o formulário `download-form` e segue o botão. O nome do arquivo vem do `Content-Disposition`.
+- O download é por streaming (1 MB por vez) para `download.parcial` e só ganha o nome final no fim. Se o Drive recusar, o `.parcial` é apagado.
+- Só stdlib (`urllib`, `html.parser`, `email.message`). Sem `gdown` e sem dependência nova.
+- Link de outro site (Dropbox, YouTube) é recusado com mensagem.
 
 ### Pasta do projeto
 
@@ -181,7 +192,13 @@ Formatos usados (da doc atual do OpenRouter, não inventados):
    - plano completo sem IA: 96 s
    - render final (11:10 de saída, crf 18, preset medium, 235 trechos): 1413 s (23.5 min). Meta: 30 min.
    - Atenção: `testsrc2` é difícil de codificar e tem keyframes regulares. Vídeo de câmera real pode ser mais rápido ou mais lento. Não medido.
-7. **Regras de código aplicadas por hook** (`~/.claude/hooks/immutable-rules-check.py`) em todo `.py`, inclusive testes: toda função dentro de classe, `__init__` só atribui, no máximo 3 parâmetros, métodos com até 20 linhas, sem `elif`, sem número solto (só 0 e 1), sem nome vago (`result`, `run`, `data`, uma letra), sem estado global mutável (use `MappingProxyType` como atributo de classe), sem `print`, sem `subprocess`. Os testes usam classes com constantes nomeadas por isso. Arquivos de código devem ser escritos com Write/Edit, não por redirecionamento do shell (outro hook bloqueia).
+7. **Download real do Drive testado em 2026-10-29** com um arquivo público grande (498 MB, `1l_5RK28JRL19wpT22B-DY9We3TVXnnQQ`, um `.npz` de exemplo do gdown, não é vídeo):
+   - O Drive entregou o arquivo direto com `confirm=t` (`206 application/octet-stream`, `content-disposition: attachment; filename="fcn8s_from_caffe.npz"`). Sem `confirm=t`, veio a página `Google Drive - Virus scan warning`.
+   - Chegaram 498881336 bytes, igual ao `content-range: bytes 0-2047/498881336`. O comando inteiro levou 68 s (cerca de 4.5 MB/s nesta rede).
+   - Link inexistente: o Drive responde `404 text/html`, e o programa mostra "respondeu erro 404" com a instrução de compartilhar.
+   - Dois bugs achados e corrigidos com teste: um `editar` que falhava ao abrir o vídeo deixava `estado.json` para trás e travava a nova tentativa; e a busca de "já baixado" podia pegar a pasta `<nome>_talkedit/` em vez do vídeo.
+   - Ainda não testado com um vídeo real no Drive nem com arquivo privado (o esperado é a página de login cair na mensagem "não está público").
+8. **Regras de código aplicadas por hook** (`~/.claude/hooks/immutable-rules-check.py`) em todo `.py`, inclusive testes: toda função dentro de classe, `__init__` só atribui, no máximo 3 parâmetros, métodos com até 20 linhas, sem `elif`, sem número solto (só 0 e 1), sem nome vago (`result`, `run`, `data`, uma letra), sem estado global mutável (use `MappingProxyType` como atributo de classe), sem `print`, sem `subprocess`. Os testes usam classes com constantes nomeadas por isso. Arquivos de código devem ser escritos com Write/Edit, não por redirecionamento do shell (outro hook bloqueia).
 
 ## 7. O que foi feito (etapa 1)
 
@@ -195,6 +212,7 @@ Formatos usados (da doc atual do OpenRouter, não inventados):
 - [x] 5.16 Modo de teste com fakes
 - [x] 5.17 (parte) custo real por função e relatório em markdown
 - [x] Render do YouTube na resolução original, com emendas suaves e prévia em 360p
+- [x] Entrada por link público do Google Drive (`editar <link>`, `--pasta`), fora da spec, pedida pelo dono em 2026-10-29
 
 ## 8. O que falta
 
@@ -205,6 +223,8 @@ Formatos usados (da doc atual do OpenRouter, não inventados):
 - [ ] Tempo restante do fluxo inteiro antes de começar (5.14). Hoje só existe por tarefa (render).
 - [ ] Opção paga Auphonic (5.1).
 - [ ] `continuar` num projeto já aprovado e renderizado não mostra nada; deveria dizer onde está a entrega.
+- [ ] Download do Drive interrompido recomeça do zero (não usa `Range`). Só importa com vídeo de vários GB.
+- [ ] Testar com um vídeo real no Drive e com um link privado.
 
 ### Próximas etapas (ordem de `SPEC.md` seção 7)
 
@@ -226,12 +246,13 @@ Formatos usados (da doc atual do OpenRouter, não inventados):
 | Risada não reconhecida | `Word.is_laughter` procura "laugh", "ris" ou "gargalh" no texto do evento. O formato real que o Scribe usa para risada em português não foi visto ainda. | Procurar `audio_event` em `transcricao.json` de um vídeo com risada. |
 | Modelos com alias que mudam | Nomes de modelo saem e entram no OpenRouter. | `talkedit verificar` antes de cada uso longo. |
 | Travamento do ffmpeg | Ver a descoberta 1. Se uma etapa de áudio passar de alguns minutos num vídeo curto, é isso. | `ps aux \| grep tools/ffmpeg` e o tempo no log em `trabalho/logs/`. |
+| Mudança no download do Drive | O fluxo depende de `confirm=t` e do formulário `download-form`, que o Google pode mudar sem aviso. Também há limite diário de downloads por arquivo. | Se `editar <link>` disser "mostrou uma pagina em vez do video" para um arquivo público, salve a página baixada e confira o HTML. |
 | Tempo de render | 23.5 min para 15 min sintéticos em 1080p, perto da meta de 30. Vídeo 4K vai demorar mais. | Medir com vídeo real. A config `render.velocidade_x264 = "fast"` é a válvula. |
 
 ## 10. Testes
 
 - `tests/test_end_to_end.py` gera um vídeo de 12 s (tom de 220 Hz com silêncio), roda `editar --teste` e `aprovar`, e confere a sincronia, o encurtamento e o relatório. Também protege contra a volta do travamento do ffmpeg, porque usa a limpeza `normal`.
-- Os testes de unidade cobrem pausas, linha do tempo, emenda de áudio, leitura da resposta da editora e da revisora, trava de risada, config, estado, pedaços de transcrição, cliente OpenRouter (com transporte falso) e progresso (com relógio falso).
+- Os testes de unidade cobrem pausas, linha do tempo, emenda de áudio, leitura da resposta da editora e da revisora, trava de risada, config, estado, pedaços de transcrição, cliente OpenRouter (com transporte falso), progresso (com relógio falso) e download do Drive (`tests/test_drive.py`, com `FakeFetcher` no lugar da internet). São 50 testes no total.
 - Os vídeos de teste da sessão de 2026-10-29 ficaram no scratchpad temporário do Claude e podem sumir. Para recriar o vídeo falado:
   ```
   say -v Luciana -o fala.aiff "oi gente, deixa eu ver se ta gravando. [[slnc 2000]] Hoje eu vou falar ..."

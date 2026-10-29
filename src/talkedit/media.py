@@ -66,22 +66,26 @@ class MediaProbe:
 
     def probe(self, path: Path) -> MediaInfo:
         if not path.exists():
-            raise MediaError(
-                f"O arquivo {path} nao existe.", "Confira o caminho do video."
-            )
-        output = self._runner.capture(self._command(path), f"ffprobe-{path.stem}")
-        report = self._parse(output, path)
+            raise MediaError(f"O arquivo {path} nao existe.", "Confira o caminho do video.")
+        report = self._parse(self._probe_output(path), path)
         video = self._video_stream(report, path)
         width, height = self._display_size(video)
         return MediaInfo(
             duration=float(report["format"]["duration"]),
-            fps=Fraction(video["avg_frame_rate"]).limit_denominator(
-                MAX_FPS_DENOMINATOR
-            ),
+            fps=Fraction(video["avg_frame_rate"]).limit_denominator(MAX_FPS_DENOMINATOR),
             width=width,
             height=height,
             has_audio=any(stream["codec_type"] == "audio" for stream in report["streams"]),
         )
+
+    def _probe_output(self, path: Path) -> str:
+        try:
+            return self._runner.capture(self._command(path), f"ffprobe-{path.stem}")
+        except MediaError as error:
+            raise MediaError(
+                f"Nao consegui abrir {path.name} como video.",
+                "Confira se o arquivo e um video (mp4, mov) e se abre no QuickTime.",
+            ) from error
 
     def _command(self, path: Path) -> list[str]:
         return [

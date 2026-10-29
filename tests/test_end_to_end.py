@@ -42,7 +42,7 @@ class TestTestModeEndToEnd:
     def test_plan_then_approve_delivers_a_shorter_video_in_sync(self, tmp_path: Path) -> None:
         source = tmp_path / "bruto.mp4"
         SampleVideo().make(source)
-        cli = CommandLine(ParserFactory().parser(), UserHome(tmp_path / "home"))
+        cli = CommandLine(ParserFactory().parser(), UserHome(tmp_path / "home", tmp_path / "videos"))
         logging.getLogger("talkedit").handlers.clear()
 
         planned = cli.main(["editar", str(source), "--teste"])
@@ -58,9 +58,19 @@ class TestTestModeEndToEnd:
     def test_second_edit_of_the_same_video_points_to_continue(self, tmp_path: Path) -> None:
         source = tmp_path / "bruto.mp4"
         SampleVideo().make(source)
-        cli = CommandLine(ParserFactory().parser(), UserHome(tmp_path / "home"))
+        cli = CommandLine(ParserFactory().parser(), UserHome(tmp_path / "home", tmp_path / "videos"))
 
         cli.main(["editar", str(source), "--teste"])
         again = cli.main(["editar", str(source), "--teste"])
 
         assert again != self.EXIT_OK, "a second edit must not overwrite the project"
+
+    def test_file_that_is_not_a_video_leaves_no_project_behind(self, tmp_path: Path) -> None:
+        source = tmp_path / "nao_e_video.mp4"
+        source.write_text("isto nao e um video", encoding="utf-8")
+        cli = CommandLine(ParserFactory().parser(), UserHome(tmp_path / "home", tmp_path / "videos"))
+
+        first = cli.main(["editar", str(source), "--teste"])
+
+        assert first != self.EXIT_OK
+        assert not ProjectWorkspace.beside(source).state_file.exists(), "retry would be refused"
