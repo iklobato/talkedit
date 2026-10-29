@@ -1,4 +1,5 @@
 import json
+from enum import Enum
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any, ClassVar
@@ -60,6 +61,12 @@ class CostReader:
         return round(usd, self.DIGITS)
 
 
+class StageStatus(Enum):
+    DONE = "done"
+    RUNNING = "running"
+    WAITING = "waiting"
+
+
 class StageList:
     LABELS: ClassVar[MappingProxyType[Stage, str]] = MappingProxyType(
         {
@@ -81,10 +88,21 @@ class StageList:
 
     def _row(self, stage: Stage, state: ProjectState, active: JobSnapshot) -> dict[str, str]:
         """`active` is the job only when it runs on this project, else an empty snapshot."""
-        label = self.LABELS[stage]
-        running = active.is_running() and active.stage_label == label
-        status = "done" if state.is_done(stage) else "running" if running else "waiting"
-        return {"id": stage.value, "label": label, "status": status, "detail": active.detail if running else ""}
+        status = self._status(stage, state, active)
+        running = status is StageStatus.RUNNING
+        return {
+            "id": stage.value,
+            "label": self.LABELS[stage],
+            "status": status.value,
+            "detail": active.detail if running else "",
+        }
+
+    def _status(self, stage: Stage, state: ProjectState, active: JobSnapshot) -> StageStatus:
+        if state.is_done(stage):
+            return StageStatus.DONE
+        if active.is_running() and active.stage_label == self.LABELS[stage]:
+            return StageStatus.RUNNING
+        return StageStatus.WAITING
 
 
 class ProjectView:
