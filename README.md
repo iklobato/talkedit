@@ -1,6 +1,7 @@
 # talkedit
 
 Editor de video com IA para talking head. O que o produto faz esta em `SPEC.md`.
+Estado atual, descobertas, pendencias e riscos: `KNOWLEDGE.md` (leia antes de mexer).
 O guia de uso para quem nao programa vem na etapa 7 (`GUIA.md`).
 
 ## Decisoes tecnicas
